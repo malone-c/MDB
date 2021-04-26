@@ -1,0 +1,145 @@
+---
+title: "7016 Proj MATHS"
+author: "Christopher Malone"
+date: "31/10/2020"
+output: html_document
+---
+
+# Structure
+Introduction
+x Abstract
+x Road map
+x Motivation
+x State the dataset (including source)
+x Main issues
+x Who cares?
+
+Methodology
+x Variables used
+x State and justify prior(s)
+x State and justify model(s)
+    x Define all notation. State all assumptions.
+- Discuss the MCMC
+    x Sequence of draws
+    x Number of iterations
+    x Burn-in period
+    x Thinning interval
+    x Proposal distribution
+    x Did you use your own code? What did you use?
+* If you are using techniques we learned in class, you do not need to re-explain the theory behind the techniques. If you are using techniques that we did not cover in class, the techniques should be clearly explained in your report. 
+
+Results
+x Show the density of theta.
+x Show a table where columns are crop type and rows are regions. 
+- Relate the discussion to the original research question.
+- Show that rho is far from zero.
+
+Diagnostics
+- Posterior predictive check on y. Generate sample means for the entire sample from a multivariate normal. Then display them in a histogram.
+- Show tables (or type 'h' histogram style line charts) of effective sizes and ACF values.
+
+Issues
+- Discuss the potential for an additive model
+- Discuss the sensitivity of the model to non-random removal of panels. It may be biased by panels with highly elastic crops or regions.
+
+Conclusions
+
+Appendix
+- Provide a code appendix
+- Be selective with the output, to help clarity
+
+Length: 15 pages max (including graphs, excluding appendices)
+
+
+
+
+### Sampling model
+
+\begin{equation}
+\textbf{Y}_j=\left(\begin{array}{c}
+Y_{1, j} \\
+\vdots \\
+Y_{n, j}
+\end{array}\right) \sim \text {multivariate normal }\left(\mathbf{X}_j \boldsymbol{\beta}_j, \sigma^{2} \mathbf{C}_\rho \right)\\
+\end{equation}
+
+where $\mathbf{C}_\rho$ is the correlation matrix, described above.
+
+Importantly, I make the following assumption on each vector of coefficients $\pmb{\beta}_j$.
+
+$$\pmb{\beta}_j \stackrel{iid}{\sim} \operatorname{multivariate normal} (\pmb{\theta}, \Sigma)$$ 
+
+### Prior distributions
+
+The prior distributions I assume for each parameter is as follows.
+
+\begin{align}
+
+\sigma^2 & \sim \operatorname{inverse-gamma}\left(\nu_{0} / 2, \nu_{0} \sigma_{0}^{2} / 2\right) \\
+
+\boldsymbol{\theta} & \sim \operatorname{multivariate normal}\left(\boldsymbol{\mu}_{0}, \Lambda_{0}\right) \\
+
+\Sigma & \sim \operatorname {inverse-Wishart} \left(\eta_{0}, \mathbf{S}_{0}^{-1}\right)\\
+
+\rho & \sim \operatorname{uniform}(0, 1)
+
+\end{align}
+
+### Prior hyperparameters
+First, I set $\nu_0 = \sigma^2_0 = 1$, so that the prior on $\sigma^2$ relatively diffuse. Next, I set the mean vector for the prior distribution on $\pmb{\theta}$ to be $\mu_{0, k} = \hat{\beta}_{k}^{\text{OLS}}$, $k \in \{ 0, 1, 2 \}$, where $\beta_0$ is the intercept; $\beta_1$ and $\beta_2$ are the regression coefficients associated with `log(price)` and `rainfall`, respectively; and $\hat{\beta}_{k}^{\text{OLS}}$ is the OLS estimate for $\beta_k$. Similarly, I set $\Lambda_0$ to be the sample variance-covariance matrix for the $\beta$ terms from the OLS fit. Finally, I set $\textbf{S}_0^{-1} = \Lambda_0^{-1}$, and $\eta_0 = p + 2 = 5$, so that the prior mean of $\Sigma$ is the sample covariance of the OLS estimates of the $\beta_k$'s.  
+
+### Posteriors
+The above prior distribution assumptions result in the following set of posteriors. Note that the analytic form of the posterior distribution for $\rho$ is not known. For this reason, we must estimate it using the Metropolis method.
+
+\begin{align}
+
+
+\left\{\boldsymbol{\theta} \mid \boldsymbol{\beta}_{1}, \ldots, \boldsymbol{\beta}_{N}, \Sigma\right\} & \sim \operatorname {multivariate normal} \left(\boldsymbol{\mu}_{N}, \Lambda_{N}\right), \text { where } \\
+\qquad 
+
+\Lambda_{N} &=\left(\Lambda_{0}^{-1} + N \Sigma^{-1}\right)^{-1} \\
+\boldsymbol{\mu}_{N} &=\Lambda_{N}\left(\Lambda_{0}^{-1} \boldsymbol{\mu}_{0}+N \Sigma^{-1} \overline{\boldsymbol{\beta}}\right) \\
+\overline{\boldsymbol{\beta}} &= \frac{1}{N} \sum_{j = 1}^N \pmb{\beta_j} \\
+\\
+
+
+
+\left\{ \Sigma \mid \boldsymbol{\theta}, \boldsymbol{\beta}_{1}, \ldots, \boldsymbol{\beta}_{m}\right\} & \sim \text { inverse-Wishart }\left(\eta_{0}+N,\left[\mathbf{S}_{0}+\mathbf{S}_{\theta}\right]^{-1}\right), \text {where } \\
+\mathbf{S}_{\theta} &=\sum_{j=1}^{N}\left(\boldsymbol{\beta}_{j}-\boldsymbol{\theta}\right)\left(\boldsymbol{\beta}_{j}-\boldsymbol{\theta}\right)^{T} \\
+\\ 
+
+ 
+
+\left\{\boldsymbol{\beta}_{j} \mid \pmb{y}_{j}, \mathbf{X}_{j}, \boldsymbol{\theta}, \Sigma, \sigma^{2}, \rho \right\} & \sim \operatorname {multivariate normal} \left(\boldsymbol{\beta}_{n}, \Sigma_{n}\right), \text { where } \\
+\qquad 
+\Sigma_{n} &=\left(\mathbf{X}^{T}_j \mathbf{C}_{\rho}^{-1} \mathbf{X}_j / \sigma^{2}+\Sigma^{-1}\right)^{-1} \\
+\boldsymbol{\beta}_{n} &=\Sigma_{n}\left(\mathbf{X}^{T}_j \mathbf{C}_{\rho}^{-1} \pmb{y}_j / \sigma^{2}+\Sigma^{-1} \boldsymbol{\beta}_{0}\right), \text { and } \\
+\\
+
+
+
+\left\{\sigma^{2} \mid \mathbf{X}, \pmb{y}, \boldsymbol{\beta}, \rho \right\} & \sim \operatorname {inverse-gamma} \left(\left[\nu_{0}+n\right] / 2,\left[\nu_{0} \sigma_{0}^{2}+\operatorname{SSR}_{\rho}\right] / 2\right), \text { where } \\
+\operatorname{SSR}_{\rho} &=(\pmb{y}-\mathbf{X} \boldsymbol{\beta})^{T} \mathbf{C}_{\rho}^{-1}(\pmb{y}-\mathbf{X} \boldsymbol{\beta})
+\end{align}
+
+Note that the $\pmb{\beta}_j$'s are sufficient for $\pmb{\theta}$ and $\Sigma$. That is, their prior distributions depend only on $\rho$ through each $\pmb{\beta}_j$.
+
+### The algorithm
+
+1. Update $\boldsymbol{\beta}$ : Sample $\boldsymbol{\beta}^{(s+1)} \sim$ multivariate normal $\left(\boldsymbol{\beta}_{n}, \Sigma_{n}\right),$ where $\boldsymbol{\beta}_{n}$ and $\Sigma_{n}$ depend on $\sigma^{2(s)}$ and $\rho^{(s)}$.
+
+2. Update $\pmb{\theta}$ : Sample $\pmb{\theta}^{(s+1)} \sim$ multivariate normal $(\pmb{\mu}_m, \Lambda_m)$, where $\pmb{\mu}_m$ depends on $\boldsymbol{\beta}^{(s+1)}$.
+
+3. Update $\Sigma$ : Sample $\Sigma^{(s+1)} \sim$ inverse-Wishart $\left(\eta_{0}, \mathbf{S}_{0}^{-1}\right)$, where $\textbf{S}_\theta$ depends on $\pmb{\beta}^{(s+1)}$ and $\pmb{\theta}^{(s+1)}$.
+
+4. Update $\sigma^{2}$ : Sample $\sigma^{2(s+1)} \sim$ inverse-gamma $\left(\left[\nu_{0}+n\right] / 2,\left[\nu_{0} \sigma_{0}^{2}+\mathrm{SSR}_{\rho}\right] / 2\right)$.
+where $\mathrm{SSR}_{\rho}$ depends on $\boldsymbol{\beta}^{(s+1)}$ and $\rho^{(s)}$.
+
+5. Update $\rho$ :
+a) Propose $\rho^{*} \sim \operatorname{uniform}\left(\rho^{(s)}-\delta, \rho^{(s)}+\delta\right) .$ If $\rho^{*}<0$ then reassign it to
+be $\left|\rho^{*}\right| .$ If $\rho^{*}>1$ reassign it to be $2-\rho^{*}$.
+b) Compute the acceptance ratio
+$$
+r=\frac{p\left(\pmb{y} \mid \mathbf{X}, \boldsymbol{\beta}^{(s+1)}, \sigma^{2(s+1)}, \rho^{*}\right) p\left(\rho^{*}\right)}{p\left(\pmb{y} \mid \mathbf{X}, \boldsymbol{\beta}^{(s+1)}, \sigma^{2(s+1)}, \rho^{(s)}\right) p\left(\rho^{(s)}\right)}
+$$
+and sample $u \sim$ uniform $(0,1) .$ If $u<r$ set $\rho^{(s+1)}=\rho^{*},$ otherwise set $\rho^{(s+1)}=\rho^{(s)}$.
